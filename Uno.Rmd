@@ -1,0 +1,351 @@
+---
+title: "Multivariate Analysis Project"
+output: html_notebook
+---
+# Data Cleaning and Visualization
+
+
+```{r}
+library(ResourceSelection)
+library(KernSmooth)
+library(MVA)
+library(sem)
+library(semPlot)
+library(mclust)
+```
+
+
+```{r}
+data<-read.csv('forestfires.csv')
+head(data)
+```
+
+
+Checking the correlation matrix
+
+The first 4 variables describe the location and day of the forest fires. Let's focus on the numeric variables. The correlation matrix of our data is as follows:
+
+```{r}
+data.n<-data[,5:13]
+cor(data.n)
+
+
+```
+
+Lets understand our variables with the help of visualizations.
+
+FFMC: Fine Fuel Moisture Code, 
+DMC: Duff Moisture Code , 
+DC: Drought Code and 
+ISI: Initial SpreadIndex
+
+FFMC denotes the moisture content surface litter and influences ignition and fire spread
+
+DMC and DC represent the moisture content of shallow and deep organic layers, which affect fire intensity
+
+ISI is a score that correlates with fire velocity spread.
+
+
+
+```{r}
+mydata<- data[,5:8]
+
+kdepairs(mydata)
+```
+
+We can observe a few interesting relationships from the plot above.
+
+1) We already know DMC and DC are correlated and that they represent moisture content of shallow and deep organic layers, which affect fire intensity
+
+```{r}
+library(ggplot2)
+
+ggplot(data=mydata,mapping = aes(x=DC,y=DMC))+ geom_point()+geom_density2d()
+```
+
+A couple of clusters can be observed from the scatterplot.
+
+2) DMC and temp variables seem to be correlated and show 2 clusters in data
+
+```{r}
+ggplot(data=mydata,mapping = aes(x=temp,y=DMC))+ geom_point()+geom_density2d()
+```
+
+4) DC and temp variables seem to be correlated and show 2 clusters in data
+
+```{r}
+ggplot(data=mydata,mapping = aes(x=temp,y=DC))+ geom_point()+geom_density2d()
+```
+
+ISI and temp with one outlier
+
+```{r}
+ggplot(data=mydata,mapping = aes(x=ISI,y=temp))+ geom_point()+geom_density2d()
+```
+
+wind and ISI
+
+```{r}
+#ggplot(data=data,mapping = aes(x=ISI,y=wind))+ geom_point()+geom_density2d()
+```
+
+
+
+Lets plot a bivariate boxplot to detect the outlier
+
+#1) ISI v temp
+
+```{r}
+
+# set1<- mydata[,c("ISI","temp")]
+# bvbox(set1,xlab = "ISI",ylab = "temp")
+# text(mydata$ISI,mydata$temp)
+```
+
+
+2) FFMC v ISI
+
+```{r}
+set2<- mydata[,c("ISI","FFMC")]
+bvbox(set2,xlab = "ISI",ylab = "FFMC")
+text(mydata$ISI,mydata$FFMC)
+```
+
+#3) FFMC v temprature
+
+```{r}
+# set3<- mydata[,c("FFMC","temp")]
+# bvbox(set3,xlab = "FFMC",ylab = "temp")
+# text(mydata$FFMC,mydata$temp)
+```
+
+
+```{r}
+set4<- mydata[,c("FFMC","DC")]
+bvbox(set4,xlab = "FFMC",ylab = "DC")
+text(mydata$FFMC,mydata$DC)
+```
+
+
+The outliers are observations 23, 380 , 200 , 313 , 300
+
+Remove the outlier and check correlation
+
+```{r}
+cor(mydata)
+outliers=c(23, 380 ,200, 313 , 300)
+mydata.cln= mydata[-outliers,]
+cor(mydata.cln)
+
+
+```
+
+The correlation is better without the outliers.
+
+
+EFA
+
+FFMC: Fine Fuel Moisture Code, 
+DMC: Duff Moisture Code , 
+DC: Drought Code and 
+ISI: Initial SpreadIndex
+
+FFMC denotes the moisture content surface litter and influences ignition and fire spread
+
+DMC and DC represent the moisture content of shallow and deep organic layers, which affect fire intensity
+
+ISI is a score that correlates with fire velocity spread.
+
+```{r}
+
+mydata.fa= data[-outliers,5:9]
+
+data.fa<- factanal(mydata.fa,factors = 2)
+data.fa
+```
+
+EFA analysis shows that DMC and DC are highly loaded on the first factor. FFMC and ISI are highly loaded on the second factor. Temprature is not highly loaded on any of the factors.
+
+So let us consider that the first factor represents the Moisture content of organic layers.
+
+And the second factor represents Fire Spread as both variables influence the rate of spread of forest fires.
+
+CFA
+
+```{r}
+
+fire_model<-specify.model(text="Moisture->DMC,lambda1,NA
+Moisture->DC,lambda2,NA
+Spread->FFMC,lambda3,NA
+Spread->ISI,lambda4,NA
+Moisture<->Spread,rho,NA
+DMC<->DMC,theta1,NA
+DC<->DC,theta2,NA
+FFMC<->FFMC,theta3,NA
+ISI<->ISI,theta4,NA
+Moisture<->Moisture,NA,1
+Spread<->Spread,NA,1
+")
+fire_sem<-sem(fire_model,cov(mydata.fa),nrow(mydata.fa))
+summary(fire_sem)
+
+```
+
+
+Path diagram of model
+
+```{r}
+semPaths(fire_sem,rotation = 2)
+```
+
+
+Check discrepancies
+
+```{r}
+options(fit.indices=c("GFI","AGFI","SRMR"))
+summary(fire_sem)
+```
+
+SRMR is 0.007 which is good because it is less than 0.05
+GFI is 0.999 which is greater than 0.95
+AGFI is 0.986 which is greater than 0.95
+
+Thus the data supports our CFA model.
+
+
+PCA
+
+```{r}
+pc<-princomp(mydata.cln,cor = T)
+summary(pc,loadings=T)
+```
+
+
+pc scores
+
+```{r}
+head(pc$scores[,1:3])
+
+data<-data[-outliers,]
+
+#Correlation of PC scores for the 5 variables with Area burned
+
+cor(pc$scores[,1],data$area)
+```
+
+MDS
+
+```{r}
+
+#data.nc<-data.n[-outliers,]
+
+#nrow(data.nc)
+
+cmd<-cmdscale(dist(scale(mydata.cln)),k=3)
+
+
+
+plot(cmd,xlab = "Coordinate 1", ylab = "Coordinate 2")
+text(cmd,labels = rownames(mydata.cln))
+
+
+
+```
+
+
+```{r}
+summary(data$area)
+
+Area_cat<-ifelse(data$area<0.5,"Low",ifelse(data$area<6.5,"Moderate","High"))
+
+data_new<-cbind(data,Area_cat)
+
+Area_binary<-ifelse(data$area==0,"No Fire","Fire")
+
+data_new<-cbind(data_new,Area_binary)
+
+data_newc<-data_new[-outliers,]
+
+#nrow(data.n)
+
+tail(data_newc)
+
+
+
+```
+
+
+
+
+
+```{r}
+
+data.s<-scale(mydata.cln)
+hc1 <- hclust(dist(scale(data.s)))
+plot(rev(hc1$height[450:500]))
+ct1<-cutree(hc1,3)
+table(data_newc$Area_cat)
+table(ct1)
+plot (pc$scores[,1:2], col=ct1)
+#table(ct1,data_newc$Area_cat)
+
+#(hc1$height[300:500])
+```
+
+
+
+```{r}
+
+
+km1<- kmeans(data.s,3,nstart = 50) 
+table(km1$cluster)
+table(data_newc$Area_cat)
+table(km1$cluster,data_newc$Area_cat)
+plot (pc$scores[,1:2], col=km1$cluster)
+
+
+```
+
+
+MclustDA
+
+```{r}
+odd<- seq(from=1, to=nrow(mydata.cln), by=2)
+even<- seq(from=2, to=nrow(mydata.cln), by=2)
+
+#ncol(data_newc)
+
+data.train=mydata.cln[even,]
+label.train=data_newc[even,15]
+data.test=mydata.cln[odd,]
+label.test=data_newc[odd,15]
+
+DA<- MclustDA(data.train,label.train)
+summary(DA, newdata=data.test, newclass= label.test)
+
+```
+
+A brier score is a way to verify the accuracy of a probability forecast. The score can only be used for binary outcomes, where there are only two possible events, like “it rained” or “it didn’t rain.”
+
+The most common formula is the mean squared error:
+
+brier-score
+
+1/N*Σ(ft-ot)^2
+
+
+Where:
+
+    N = the number of items you’re calculating a Brier score for.
+    ft is the forecast probability (i.e. 25% chance),
+    ot is the outcome (1 if it happened, 0 if it didn’t).
+    Σ is the summation symbol. It just means to “add up” all of the values.
+
+
+
+Geospatial Map
+
+```{r}
+ggplot(data = data_newc,mapping = aes(x=X,y=Y,col=Area_cat)) + geom_point()
+```
+
