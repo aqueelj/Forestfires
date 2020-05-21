@@ -5,3 +5,6 @@ This project explores the data collected at the montesinho national park in Port
 Uno.rmd is the main r-code which contains the code along with the results in an R-markdown file.
 Project Report includes documentation regarding the techniques used in the analysis and the motivation behind it.
 The csv file contains the Forest Fires dataset used in the analysis.
+
+Note: The aim of this project is to apply certain multivariate analysis and unsupervised learning techiques on the target dataset and hence 
+achieving a high level of accuracy in supervised learning is not a priority. However, this is being worked on and will be released in the future versions of this project.
