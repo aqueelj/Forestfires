@@ -1,4 +1,5 @@
 # Forestfires
+Analyzing the cause of forest fires to develop a model to help early detection and avoid spread of fires.
 
 This project explores the data collected at the montesinho national park in Portugal for analyzing forest fires. The dataset contains the Fire Weather Index (FWI) features which is a system used to quantify the risk of forest fires. Various multivariate analysis techniques have been applied which have been explained in detail in the Project Report.
 
